@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DevOps Project</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Welcome to My DevOps Project</h1>
+        <p id="backend-message">Loading message from backend...</p>
+        <button onclick="showAlert()">Click Me</button>
+    </div>
+
+    <script>
+        // Fetch data from Flask backend
+        fetch('/api/message')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById("backend-message").innerText = data.message;
+            })
+            .catch(error => {
+                document.getElementById("backend-message").innerText = "Error fetching backend message.";
+                console.error(error);
+            });
+
+        function showAlert() {
+            alert("Frontend is connected to backend successfully!");
+        }
+    </script>
+</body>
+</html>
