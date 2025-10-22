@@ -1,16 +1,16 @@
 from flask import Flask, render_template, jsonify
+import os
 
 app = Flask(__name__)
 
-# Frontend route
 @app.route('/')
 def home():
     return render_template('index.html')
 
-# Backend API route
 @app.route('/api/message')
-def get_message():
-    return jsonify({"message": "Hello from Flask Backend! This is starting of DevOps Project."})
+def message():
+    return jsonify({"message": "Hello from Flask on Azure App Service!"})
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    port = int(os.environ.get('PORT', 5000))  # Use the PORT Azure gives, default to 5000 locally
+    app.run(host='0.0.0.0', port=port)
