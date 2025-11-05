@@ -127,10 +127,10 @@ stages:
                 echo "Getting AKS credentials"
                 az aks get-credentials --resource-group "RGP-USE-IACT1-DEV" --name "terraformmsaks" --overwrite-existing
 
-                #az aks update -n "terraformmsaks" -g "RGP-USE-IACT1-DEV" --attach-acr "terraformmsacr"
+                az aks update -n "terraformmsaks" -g "RGP-USE-IACT1-DEV" --attach-acr "terraformmsacr"
 
                 echo "Getting AKS credentials"
-                #kubectl apply -f k8s/deployment.yaml
+                kubectl apply -f k8s/deployment.yaml
                 kubectl apply -f k8s/service.yaml
 
                 #kubectl rollout restart deployment "my-app-deployment"
