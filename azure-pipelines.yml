@@ -1,0 +1,14 @@
+trigger: 
+ - none
+
+stages:
+  - stage: Build
+    displayName: 'Build and Push Docker Image'
+    pool: 
+      vmImage: 'ubuntu-latest'
+    jobs:
+      - job: BuildAndPush
+        displayName: "Build and Push Docker image to ACR"
+
+        steps:
+          - checkout: 

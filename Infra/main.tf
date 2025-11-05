@@ -62,7 +62,10 @@ resource "azurerm_kubernetes_cluster" "dev_aks" {
   location            = data.azurerm_resource_group.dev_rg.location
   resource_group_name = data.azurerm_resource_group.dev_rg.name
   dns_prefix          = "devaks"
-
+  bootstrap_profile {
+    container_registry_id = azurerm_container_registry.acr.id
+  }
+  
   default_node_pool {
     name       = "default"
     node_count = 1
