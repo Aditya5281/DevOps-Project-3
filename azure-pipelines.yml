@@ -1,14 +1,142 @@
-trigger: 
- - none
+trigger:
+- none
+
+parameters:
+  - name: environment
+    displayName: "Select Environment"
+    type: string
+    default: "Dev"
+    values:
+      - Dev
+      - Prod
+
+variables:
+- group: 'DeploymentTest'
+- name: ResourceGroup
+  value: "RGP-USE-IACT1-DEV"
+- name: aks
+  value: "terraformmsaks"
 
 stages:
-  - stage: Build
-    displayName: 'Build and Push Docker Image'
-    pool: 
-      vmImage: 'ubuntu-latest'
+  - stage: Terraform
+    displayName: "Terraform Deploy"
+
     jobs:
-      - job: BuildAndPush
-        displayName: "Build and Push Docker image to ACR"
+      - job: TerraformDeploy
+        pool:
+          name: "us-ms-engineering-intake-1"
+        steps:
+        - task: ms-devlabs.custom-terraform-tasks.custom-terraform-installer-task.TerraformInstaller@1
+          displayName: "Install Terraform latest"
+        
+        - task: qetza.replacetokens.replacetokens-task.replacetokens@6
+          displayName: "Replace tokens"
+          inputs:
+            root: Infra
+            sources: |
+              env.tfvars
+              provider.tf
+            tokenPattern: doubleunderscores
+
+        - task: AzurePowerShell@5
+          displayName: "Terraform init"
+          inputs:
+            azureSubscription: SBX-kpmgnp
+            ScriptType: InlineScript
+            Inline: |
+              # terraform validate
+              $key = (Get-AzStorageAccountKey -ResourceGroupName $(StorageAccountRG) -Name $(StorageAccountName))[0].Value
+              $env:ARM_ACCESS_KEY = $key
+              Write-Host "##vso[task.setvariable variable=ARM_ACCESS_KEY;issecret=true]$key"
+
+              terraform init -reconfigure
+              terraform workspace new ${{ parameters.environment }}
+              terraform workspace select ${{ parameters.environment }}
+              Write-Host "Applying for ${{ parameters.environment }} Environment."
+            azurePowerShellVersion: LatestVersion
+            workingDirectory: Infra
+          
+        - task: AzurePowerShell@5
+          displayName: "Terraform plan"
+          inputs:
+            azureSubscription: SBX-kpmgnp
+            ScriptType: InlineScript
+            azurePowerShellVersion: 'LatestVersion'
+            Inline: |
+              $env:ARM_ACCESS_KEY = "$(ARM_ACCESS_KEY)"
+              terraform plan -var-file="env.tfvars" -lock=false 
+            workingDirectory: Infra
+
+        - task: AzurePowerShell@5 
+          displayName: "Terraform apply"
+          inputs:
+            azureSubscription: SBX-kpmgnp
+            ScriptType: InlineScript
+            azurePowerShellVersion: LatestVersion
+            Inline: |
+              $env:ARM_ACCESS_KEY = "$(ARM_ACCESS_KEY)"
+              terraform apply -var-file="env.tfvars" -auto-approve -lock=false 
+            workingDirectory: Infra
+
+  - stage: ImageBuild
+    displayName: "Build and Push Docker Image"
+
+    jobs:
+      - job: BuildPushImage
+        displayName: "Build and Push Docker Image"
+        pool: 
+         vmImage: "ubuntu-latest"
+        steps:
+
+          - task: AzureCLI@2
+            displayName: "Built and Push Docker image to ACR"
+            inputs:
+              azureSubscription: 'NP-kpmgnp'
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                echo "Login to ACR"
+                az acr login --name "terraformmsacr"
+
+                echo "Building Docker Image"
+                docker build -t terraformmsacr.azurecr.io/$(ImageName):latest ./app-1
+
+                echo "Pushing image to ACR"
+                docker push terraformmsacr.azurecr.io/$(ImageName):latest
+
+                echo "Docker Image Built and Pushed to ACR"
+
+  - stage: AKS
+    displayName: "Deploy to AKS"
+
+    jobs:
+      - job: ImageDeploy
+        displayName: "Deploying Image to AKS"
 
         steps:
-          - checkout: 
+          - task: AzureCLI@2
+            displayName: "Deploying Image to AKS"
+            inputs:
+              azureSubscription: 'NP-kpmgnp'
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                az account set --subscription "37a5f43b-7d53-4783-9782-c31e84937023"
+                az account show 
+
+                echo "Getting AKS credentials"
+                az aks get-credentials --resource-group "RGP-USE-IACT1-DEV" --name "terraformmsaks" --overwrite-existing
+
+                #az aks update -n "terraformmsaks" -g "RGP-USE-IACT1-DEV" --attach-acr "terraformmsacr"
+
+                echo "Getting AKS credentials"
+                #kubectl apply -f k8s/deployment.yaml
+                kubectl apply -f k8s/service.yaml
+
+                #kubectl rollout restart deployment "my-app-deployment"
+
+                kubectl describe svc my-app-service
+                kubectl get deployments
+                kubectl get pods
+                
+                echo "Deployment Completed."

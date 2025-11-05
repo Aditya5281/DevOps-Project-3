@@ -5,14 +5,6 @@ variable "dev_subscription_id" {}
 variable "prod_subscription_id" {}
 
 
-variable "asp_dev" {
-  type = string
-}
-
-variable "asp_prod" {
-  type = string
-}
-
 variable "webapp" {
   type = string
 }
